@@ -8,81 +8,33 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.springframework.stereotype.Service;
+
+
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
 @Service
 public class ReservationService {
 
-    private final List<Reservation> reservations = new ArrayList<>();
-    private final ReentrantLock lock = new ReentrantLock();
+    private final RestTemplate restTemplate;
 
-    public Reservation getReservation(Long id) {
-        return reservations.stream()
-                .filter(reservation -> reservation.getId().equals(id))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Reservation with ID " + id + " not found"));
+    public ReservationService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
     }
 
-    public List<Reservation> listReservations() {
-        lock.lock();
-        try {
-            return new ArrayList<>(reservations);
-        } finally {
-            lock.unlock();
-        }
-    }
+    public String executeQuery(String query) {
+        String url = "http://localhost:8080/graphql"; // Replace with your GraphQL API URL
 
-    public Reservation createReservation(Reservation reservation) {
-        lock.lock();
-        try {
-            reservation.setId((long) (reservations.size() + 1));
-            reservations.add(reservation);
-            return reservation;
-        } finally {
-            lock.unlock();
-        }
-    }
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
 
-    public Reservation updateReservation(Long id, Reservation updatedReservation) {
-        lock.lock();
-        try {
-            Optional<Reservation> existingReservation = reservations.stream()
-                    .filter(reservation -> reservation.getId().equals(id))
-                    .findFirst();
+        String body = "{ \"query\": \"" + query + "\" }";
+        HttpEntity<String> request = new HttpEntity<>(body, headers);
 
-            if (existingReservation.isPresent()) {
-                Reservation reservation = existingReservation.get();
-                if (updatedReservation.getClientName() != null) {
-                    reservation.setClientName(updatedReservation.getClientName());
-                }
-                if (updatedReservation.getClientEmail() != null) {
-                    reservation.setClientEmail(updatedReservation.getClientEmail());
-                }
-                if (updatedReservation.getClientPhone() != null) {
-                    reservation.setClientPhone(updatedReservation.getClientPhone());
-                }
-                if (updatedReservation.getStartDate() != null) {
-                    reservation.setStartDate(updatedReservation.getStartDate());
-                }
-                if (updatedReservation.getEndDate() != null) {
-                    reservation.setEndDate(updatedReservation.getEndDate());
-                }
-                if (updatedReservation.getRoomPreferences() != null) {
-                    reservation.setRoomPreferences(updatedReservation.getRoomPreferences());
-                }
-                return reservation;
-            } else {
-                throw new IllegalArgumentException("Reservation with ID " + id + " not found");
-            }
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    public boolean deleteReservation(Long id) {
-        lock.lock();
-        try {
-            return reservations.removeIf(reservation -> reservation.getId().equals(id));
-        } finally {
-            lock.unlock();
-        }
+        return restTemplate.postForObject(url, request, String.class);
     }
 }
